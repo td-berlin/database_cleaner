@@ -11,7 +11,7 @@ module DatabaseCleaner
         if @only
           collections.each { |c| session[c].find.remove_all if @only.include?(c) }
         else
-          collections.each { |c| session[c].find.remove_all unless @tables_to_exclude.include?(c) }
+          collections.map {|c| session[c].drop }
         end
         true
       end
@@ -24,11 +24,12 @@ module DatabaseCleaner
         end
 
         if db_version.split('.').first.to_i >= 3
-          session.command(listCollections: 1)['cursor']['firstBatch'].map do |collection|
+          session.command(listCollections: 1, filter: {
+            'name' => {
+              '$not' => /.?system\.|\$/
+              }
+            })['cursor']['firstBatch'].map do |collection|
             collection['name']
-          end
-          .reject do |collection_name|
-            collection_name =~ /.?system\.|\$/
           end
         else
           session['system.namespaces'].find(name: { '$not' => /\.system\.|\$/ }).to_a.map do |collection|
